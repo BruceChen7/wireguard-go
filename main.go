@@ -134,6 +134,7 @@ func main() {
 	}()
 
 	if err == nil {
+		// 获取接口名称
 		realInterfaceName, err2 := tun.Name()
 		if err2 == nil {
 			interfaceName = realInterfaceName
@@ -145,6 +146,7 @@ func main() {
 		fmt.Sprintf("(%s) ", interfaceName),
 	)
 
+	// 版本信息
 	logger.Verbosef("Starting wireguard-go version %s", Version)
 
 	if err != nil {
@@ -157,6 +159,7 @@ func main() {
 	fileUAPI, err := func() (*os.File, error) {
 		uapiFdStr := os.Getenv(ENV_WG_UAPI_FD)
 		if uapiFdStr == "" {
+			// 创建一个unix套接字
 			return ipc.UAPIOpen(interfaceName)
 		}
 
@@ -210,6 +213,7 @@ func main() {
 			os.Exit(ExitSetupFailed)
 		}
 
+		// 开启进程
 		process, err := os.StartProcess(
 			path,
 			os.Args,
@@ -230,6 +234,7 @@ func main() {
 	errs := make(chan error)
 	term := make(chan os.Signal, 1)
 
+	// listen unix套接字
 	uapi, err := ipc.UAPIListen(interfaceName, fileUAPI)
 	if err != nil {
 		logger.Errorf("Failed to listen on uapi socket: %v", err)
@@ -238,6 +243,7 @@ func main() {
 
 	go func() {
 		for {
+			// 开始accept
 			conn, err := uapi.Accept()
 			if err != nil {
 				errs <- err

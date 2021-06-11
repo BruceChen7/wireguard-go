@@ -100,6 +100,7 @@ func (device *Device) IpcGetOperation(w io.Writer) error {
 
 		// serialize each peer state
 
+		// 初始化对端信息
 		for _, peer := range device.peers.keyMap {
 			peer.RLock()
 			defer peer.RUnlock()
@@ -111,13 +112,16 @@ func (device *Device) IpcGetOperation(w io.Writer) error {
 				sendf("endpoint=%s", peer.endpoint.DstToString())
 			}
 
+			// 上次统计时间
 			nano := atomic.LoadInt64(&peer.stats.lastHandshakeNano)
 			secs := nano / time.Second.Nanoseconds()
 			nano %= time.Second.Nanoseconds()
 
 			sendf("last_handshake_time_sec=%d", secs)
 			sendf("last_handshake_time_nsec=%d", nano)
+			// 流量统计
 			sendf("tx_bytes=%d", atomic.LoadUint64(&peer.stats.txBytes))
+			// 读统计
 			sendf("rx_bytes=%d", atomic.LoadUint64(&peer.stats.rxBytes))
 			sendf("persistent_keepalive_interval=%d", atomic.LoadUint32(&peer.persistentKeepaliveInterval))
 
@@ -165,6 +169,7 @@ func (device *Device) IpcSetOperation(r io.Reader) (err error) {
 		key := parts[0]
 		value := parts[1]
 
+		// 设置pulic key
 		if key == "public_key" {
 			if deviceConfig {
 				deviceConfig = false
@@ -180,6 +185,7 @@ func (device *Device) IpcSetOperation(r io.Reader) (err error) {
 
 		var err error
 		if deviceConfig {
+			// 处理网卡相关的配置
 			err = device.handleDeviceLine(key, value)
 		} else {
 			err = device.handlePeerLine(peer, key, value)
@@ -196,6 +202,7 @@ func (device *Device) IpcSetOperation(r io.Reader) (err error) {
 	return nil
 }
 
+// https://zhuanlan.zhihu.com/p/147377961
 func (device *Device) handleDeviceLine(key, value string) error {
 	switch key {
 	case "private_key":
@@ -217,9 +224,11 @@ func (device *Device) handleDeviceLine(key, value string) error {
 		device.log.Verbosef("UAPI: Updating listen port")
 
 		device.net.Lock()
+		// 修改端口号
 		device.net.port = uint16(port)
 		device.net.Unlock()
 
+		// 重新绑定
 		if err := device.BindUpdate(); err != nil {
 			return ipcErrorf(ipc.IpcErrorPortInUse, "failed to set listen_port: %w", err)
 		}
@@ -417,6 +426,7 @@ func (device *Device) IpcHandle(socket net.Conn) {
 	for {
 		op, err := buffered.ReadString('\n')
 		if err != nil {
+			// 直接返回
 			return
 		}
 

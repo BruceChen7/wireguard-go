@@ -33,6 +33,7 @@ func sockPath(iface string) string {
 }
 
 func UAPIOpen(name string) (*os.File, error) {
+	// 创建unix socket文件
 	if err := os.MkdirAll(socketDirectory, 0755); err != nil {
 		return nil, err
 	}
@@ -44,8 +45,10 @@ func UAPIOpen(name string) (*os.File, error) {
 	}
 
 	oldUmask := unix.Umask(0077)
+	// 恢复之前的master
 	defer unix.Umask(oldUmask)
 
+	// 创建unix桃姐子
 	listener, err := net.ListenUnix("unix", addr)
 	if err == nil {
 		return listener.File()

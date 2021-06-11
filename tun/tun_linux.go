@@ -47,6 +47,7 @@ type NativeTun struct {
 	nameErr   error
 }
 
+// 设备文件信息
 func (tun *NativeTun) File() *os.File {
 	return tun.tunFile
 }
@@ -99,6 +100,7 @@ func (tun *NativeTun) routineHackListener() {
 	}
 }
 
+// 设置netlink raw socket
 func createNetlinkSocket() (int, error) {
 	sock, err := unix.Socket(unix.AF_NETLINK, unix.SOCK_RAW, unix.NETLINK_ROUTE)
 	if err != nil {
@@ -127,7 +129,9 @@ func (tun *NativeTun) routineNetlinkListener() {
 		var err error
 		var msgn int
 		for {
+			// 接受消息
 			msgn, _, _, _, err = unix.Recvmsg(tun.netlinkSock, msg[:], nil, 0)
+			// 不能重试，直接退出
 			if err == nil || !rwcancel.RetryAfterError(err) {
 				break
 			}
@@ -136,6 +140,7 @@ func (tun *NativeTun) routineNetlinkListener() {
 				return
 			}
 		}
+		// 直接返回
 		if err != nil {
 			tun.errors <- fmt.Errorf("failed to receive netlink message: %w", err)
 			return
@@ -148,6 +153,7 @@ func (tun *NativeTun) routineNetlinkListener() {
 		}
 
 		wasEverUp := false
+		// 解析netlink的协议
 		for remain := msg[:msgn]; len(remain) >= unix.SizeofNlMsghdr; {
 
 			hdr := *(*unix.NlMsghdr)(unsafe.Pointer(&remain[0]))
@@ -157,6 +163,7 @@ func (tun *NativeTun) routineNetlinkListener() {
 			}
 
 			switch hdr.Type {
+		        // 消息接收完毕
 			case unix.NLMSG_DONE:
 				remain = []byte{}
 
@@ -164,11 +171,13 @@ func (tun *NativeTun) routineNetlinkListener() {
 				info := *(*unix.IfInfomsg)(unsafe.Pointer(&remain[unix.SizeofNlMsghdr]))
 				remain = remain[hdr.Len:]
 
+				// 不是这边的
 				if info.Index != tun.index {
 					// not our interface
 					continue
 				}
 
+				// 设备起来了
 				if info.Flags&unix.IFF_RUNNING != 0 {
 					tun.events <- EventUp
 					wasEverUp = true
@@ -179,13 +188,16 @@ func (tun *NativeTun) routineNetlinkListener() {
 					// This avoids a startup race with HackListener, which
 					// might detect Up before we have finished reporting Down.
 					if wasEverUp {
+						// 设备down掉了
 						tun.events <- EventDown
 					}
 				}
 
+				// 设备MTU更改
 				tun.events <- EventMTUUpdate
 
 			default:
+				// 取剩余的部分
 				remain = remain[hdr.Len:]
 			}
 		}
@@ -407,6 +419,7 @@ func (tun *NativeTun) Close() error {
 }
 
 func CreateTUN(name string, mtu int) (Device, error) {
+	// 创建tun设备
 	nfd, err := unix.Open(cloneDevicePath, os.O_RDWR, 0)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -416,14 +429,17 @@ func CreateTUN(name string, mtu int) (Device, error) {
 	}
 
 	var ifr [ifReqSize]byte
+	// 设置flags
 	var flags uint16 = unix.IFF_TUN // | unix.IFF_NO_PI (disabled for TUN status hack)
 	nameBytes := []byte(name)
 	if len(nameBytes) >= unix.IFNAMSIZ {
 		return nil, fmt.Errorf("interface name too long: %w", unix.ENAMETOOLONG)
 	}
+	// 这里是转成数组的形式
 	copy(ifr[:], nameBytes)
 	*(*uint16)(unsafe.Pointer(&ifr[unix.IFNAMSIZ])) = flags
 
+	// 创建tun设备
 	_, _, errno := unix.Syscall(
 		unix.SYS_IOCTL,
 		uintptr(nfd),
@@ -437,6 +453,7 @@ func CreateTUN(name string, mtu int) (Device, error) {
 
 	// Note that the above -- open,ioctl,nonblock -- must happen prior to handing it to netpoll as below this line.
 
+	// 这样才能poll，创建一个文件，可以poll
 	fd := os.NewFile(uintptr(nfd), cloneDevicePath)
 	if err != nil {
 		return nil, err
@@ -445,6 +462,7 @@ func CreateTUN(name string, mtu int) (Device, error) {
 	return CreateTUNFromFile(fd, mtu)
 }
 
+// 首先创建虚拟网卡信息
 func CreateTUNFromFile(file *os.File, mtu int) (Device, error) {
 	tun := &NativeTun{
 		tunFile:                 file,
@@ -466,6 +484,7 @@ func CreateTUNFromFile(file *os.File, mtu int) (Device, error) {
 		return nil, err
 	}
 
+	// 创建netlink socket
 	tun.netlinkSock, err = createNetlinkSocket()
 	if err != nil {
 		return nil, err
@@ -480,6 +499,7 @@ func CreateTUNFromFile(file *os.File, mtu int) (Device, error) {
 	go tun.routineNetlinkListener()
 	go tun.routineHackListener() // cross namespace
 
+	// 设置设备的mtu
 	err = tun.setMTU(mtu)
 	if err != nil {
 		unix.Close(tun.netlinkSock)

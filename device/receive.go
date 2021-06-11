@@ -81,6 +81,7 @@ func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 
 	// receive datagrams until conn is closed
 
+	// 获取消息buffer
 	buffer := device.GetMessageBuffer()
 
 	var (
@@ -95,6 +96,7 @@ func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 
 		if err != nil {
 			device.PutMessageBuffer(buffer)
+			// 如果链接关闭
 			if errors.Is(err, net.ErrClosed) {
 				return
 			}
@@ -119,6 +121,7 @@ func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 		// check size of packet
 
 		packet := buffer[:size]
+		// 前4个字节是msgType
 		msgType := binary.LittleEndian.Uint32(packet[:4])
 
 		var okay bool
@@ -140,6 +143,7 @@ func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 			receiver := binary.LittleEndian.Uint32(
 				packet[MessageTransportOffsetReceiver:MessageTransportOffsetCounter],
 			)
+			// 获取接收者
 			value := device.indexTable.Lookup(receiver)
 			keypair := value.keypair
 			if keypair == nil {

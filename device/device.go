@@ -467,6 +467,7 @@ func (device *Device) BindUpdate() error {
 	var err error
 	var recvFns []conn.ReceiveFunc
 	netc := &device.net
+	// 打开端口号
 	recvFns, netc.port, err = netc.bind.Open(netc.port)
 	if err != nil {
 		netc.port = 0
@@ -489,10 +490,12 @@ func (device *Device) BindUpdate() error {
 
 	// clear cached source addresses
 	device.peers.RLock()
+	// 清理对端
 	for _, peer := range device.peers.keyMap {
 		peer.Lock()
 		defer peer.Unlock()
 		if peer.endpoint != nil {
+			// 清理原地址
 			peer.endpoint.ClearSrc()
 		}
 	}

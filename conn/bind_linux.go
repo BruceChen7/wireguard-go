@@ -103,6 +103,7 @@ func (*LinuxSocketBind) ParseEndpoint(s string) (Endpoint, error) {
 	return nil, errors.New("invalid IP address")
 }
 
+// 打开新的套接字
 func (bind *LinuxSocketBind) Open(port uint16) ([]ReceiveFunc, uint16, error) {
 	bind.mu.Lock()
 	defer bind.mu.Unlock()
@@ -231,6 +232,7 @@ func (bind *LinuxSocketBind) receiveIPv4(buf []byte) (int, Endpoint, error) {
 		return 0, nil, net.ErrClosed
 	}
 	var end LinuxSocketEndpoint
+	// 从ipv4中获取消息
 	n, err := receive4(bind.sock4, buf, &end)
 	return n, &end, err
 }

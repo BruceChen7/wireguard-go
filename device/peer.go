@@ -19,7 +19,9 @@ type Peer struct {
 	isRunning    AtomicBool
 	sync.RWMutex // Mostly protects endpoint, but is generally taken whenever we modify peer
 	keypairs     Keypairs
+	// 用于握手
 	handshake    Handshake
+	// 所属tun设备
 	device       *Device
 	endpoint     conn.Endpoint
 	stopping     sync.WaitGroup // routines pending stop
@@ -64,6 +66,7 @@ type Peer struct {
 }
 
 func (device *Device) NewPeer(pk NoisePublicKey) (*Peer, error) {
+	// tun 设备关掉
 	if device.isClosed() {
 		return nil, errors.New("device closed")
 	}
@@ -76,6 +79,7 @@ func (device *Device) NewPeer(pk NoisePublicKey) (*Peer, error) {
 	defer device.peers.Unlock()
 
 	// check if over limit
+	// 超过了最多的设备数
 	if len(device.peers.keyMap) >= MaxPeers {
 		return nil, errors.New("too many peers")
 	}
@@ -107,12 +111,13 @@ func (device *Device) NewPeer(pk NoisePublicKey) (*Peer, error) {
 	// reset endpoint
 	peer.endpoint = nil
 
-	// add
+	// add 对应的public key
 	device.peers.keyMap[pk] = peer
 
 	// start peer
 	peer.timersInit()
 	if peer.device.isUp() {
+		// 开始
 		peer.Start()
 	}
 
@@ -135,6 +140,7 @@ func (peer *Peer) SendBuffer(buffer []byte) error {
 	}
 
 	err := peer.device.net.bind.Send(buffer, peer.endpoint)
+	// 写数据统计
 	if err == nil {
 		atomic.AddUint64(&peer.stats.txBytes, uint64(len(buffer)))
 	}
@@ -198,9 +204,11 @@ func (peer *Peer) Start() {
 
 	device.flushInboundQueue(peer.queue.inbound)
 	device.flushOutboundQueue(peer.queue.outbound)
+	// 接受者和发送者
 	go peer.RoutineSequentialSender()
 	go peer.RoutineSequentialReceiver()
 
+	// 正在运行
 	peer.isRunning.Set(true)
 }
 

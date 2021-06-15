@@ -244,6 +244,7 @@ func main() {
 	go func() {
 		for {
 			// 开始accept
+			// 接受unix套接字
 			conn, err := uapi.Accept()
 			if err != nil {
 				errs <- err

@@ -18,18 +18,22 @@ import (
 )
 
 type RWCancel struct {
+	// 这个fd 是netlinksock
 	fd            int
+	// 是os pipe
 	closingReader *os.File
 	closingWriter *os.File
 }
 
 func NewRWCancel(fd int) (*RWCancel, error) {
+	// 设置为non-block
 	err := unix.SetNonblock(fd, true)
 	if err != nil {
 		return nil, err
 	}
 	rwcancel := RWCancel{fd: fd}
 
+	// 创建pipe
 	rwcancel.closingReader, rwcancel.closingWriter, err = os.Pipe()
 	if err != nil {
 		return nil, err
@@ -45,6 +49,7 @@ func RetryAfterError(err error) bool {
 func (rw *RWCancel) ReadyRead() bool {
 	closeFd := int32(rw.closingReader.Fd())
 
+	// 监听读事件
 	pollFds := []unix.PollFd{{Fd: int32(rw.fd), Events: unix.POLLIN}, {Fd: closeFd, Events: unix.POLLIN}}
 	var err error
 	for {
@@ -96,10 +101,12 @@ func (rw *RWCancel) Read(p []byte) (n int, err error) {
 
 func (rw *RWCancel) Write(p []byte) (n int, err error) {
 	for {
+		// 给对应的netlink fd写相关数据，和内核进程通信
 		n, err := unix.Write(rw.fd, p)
 		if err == nil || !RetryAfterError(err) {
 			return n, err
 		}
+		// netlink关闭了
 		if !rw.ReadyWrite() {
 			return 0, os.ErrClosed
 		}

@@ -66,12 +66,14 @@ func (e *StdNetEndpoint) SrcToString() string {
 }
 
 func listenNet(network string, port int) (*net.UDPConn, int, error) {
+	// udp port binding
 	conn, err := net.ListenUDP(network, &net.UDPAddr{Port: port})
 	if err != nil {
 		return nil, 0, err
 	}
 
 	// Retrieve port.
+	// 本地的port
 	laddr := conn.LocalAddr()
 	uaddr, err := net.ResolveUDPAddr(
 		laddr.Network(),
@@ -90,6 +92,7 @@ func (bind *StdNetBind) Open(uport uint16) ([]ReceiveFunc, uint16, error) {
 	var err error
 	var tries int
 
+	// 有一个绑定的地址，就表示已经bind过
 	if bind.ipv4 != nil || bind.ipv6 != nil {
 		return nil, 0, ErrBindAlreadyOpen
 	}
@@ -119,6 +122,7 @@ again:
 	var fns []ReceiveFunc
 	if ipv4 != nil {
 		fns = append(fns, bind.makeReceiveIPv4(ipv4))
+		// udp端口
 		bind.ipv4 = ipv4
 	}
 	if ipv6 != nil {

@@ -30,6 +30,7 @@ func (peer *Peer) NewTimer(expirationFunction func(*Peer)) *Timer {
 		defer timer.runningLock.Unlock()
 
 		timer.modifyingLock.Lock()
+		// 阻塞中
 		if !timer.isPending {
 			timer.modifyingLock.Unlock()
 			return
@@ -37,6 +38,7 @@ func (peer *Peer) NewTimer(expirationFunction func(*Peer)) *Timer {
 		timer.isPending = false
 		timer.modifyingLock.Unlock()
 
+		// 开始执行超时逻辑
 		expirationFunction(peer)
 	})
 	timer.Stop()
@@ -75,6 +77,7 @@ func (peer *Peer) timersActive() bool {
 }
 
 func expiredRetransmitHandshake(peer *Peer) {
+	// 大于超时请求
 	if atomic.LoadUint32(&peer.timers.handshakeAttempts) > MaxTimerHandshakes {
 		peer.device.log.Verbosef("%s - Handshake did not complete after %d attempts, giving up", peer, MaxTimerHandshakes+2)
 
@@ -162,6 +165,7 @@ func (peer *Peer) timersDataReceived() {
 /* Should be called after any type of authenticated packet is sent -- keepalive, data, or handshake. */
 func (peer *Peer) timersAnyAuthenticatedPacketSent() {
 	if peer.timersActive() {
+		// 用来将定时器关闭
 		peer.timers.sendKeepalive.Del()
 	}
 }
@@ -183,8 +187,10 @@ func (peer *Peer) timersHandshakeInitiated() {
 /* Should be called after a handshake response message is received and processed or when getting key confirmation via the first data message. */
 func (peer *Peer) timersHandshakeComplete() {
 	if peer.timersActive() {
+		// 删除定时器
 		peer.timers.retransmitHandshake.Del()
 	}
+	// reset
 	atomic.StoreUint32(&peer.timers.handshakeAttempts, 0)
 	peer.timers.sentLastMinuteHandshake.Set(false)
 	atomic.StoreInt64(&peer.stats.lastHandshakeNano, time.Now().UnixNano())
@@ -206,6 +212,7 @@ func (peer *Peer) timersAnyAuthenticatedPacketTraversal() {
 }
 
 func (peer *Peer) timersInit() {
+	// 重传的一些超时定时器
 	peer.timers.retransmitHandshake = peer.NewTimer(expiredRetransmitHandshake)
 	peer.timers.sendKeepalive = peer.NewTimer(expiredSendKeepalive)
 	peer.timers.newHandshake = peer.NewTimer(expiredNewHandshake)

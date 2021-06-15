@@ -155,6 +155,7 @@ func (device *Device) IpcSetOperation(r io.Reader) (err error) {
 	peer := new(ipcSetPeer)
 	deviceConfig := true
 
+	// 用来解析配置文件
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -162,6 +163,7 @@ func (device *Device) IpcSetOperation(r io.Reader) (err error) {
 			// Blank line means terminate operation.
 			return nil
 		}
+		// keyxx = valxx
 		parts := strings.Split(line, "=")
 		if len(parts) != 2 {
 			return ipcErrorf(ipc.IpcErrorProtocol, "failed to parse line %q, found %d =-separated parts, want 2", line, len(parts))
@@ -274,6 +276,7 @@ func (peer *ipcSetPeer) handlePostConfig() {
 func (device *Device) handlePublicKeyLine(peer *ipcSetPeer, value string) error {
 	// Load/create the peer we are configuring.
 	var publicKey NoisePublicKey
+	// 从16进制
 	err := publicKey.FromHex(value)
 	if err != nil {
 		return ipcErrorf(ipc.IpcErrorInvalid, "failed to get peer by public key: %w", err)
@@ -285,13 +288,16 @@ func (device *Device) handlePublicKeyLine(peer *ipcSetPeer, value string) error 
 	device.staticIdentity.RUnlock()
 
 	if peer.dummy {
+		// dummpy
 		peer.Peer = &Peer{}
 	} else {
 		peer.Peer = device.LookupPeer(publicKey)
 	}
 
+	// 如果是新创建的
 	peer.created = peer.Peer == nil
 	if peer.created {
+		// 创建一个peer
 		peer.Peer, err = device.NewPeer(publicKey)
 		if err != nil {
 			return ipcErrorf(ipc.IpcErrorInvalid, "failed to create new peer: %w", err)

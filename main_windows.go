@@ -72,6 +72,7 @@ func main() {
 				errs <- err
 				return
 			}
+			// 每个新的客户端，添加一个unix socke来处理
 			go device.IpcHandle(conn)
 		}
 	}()

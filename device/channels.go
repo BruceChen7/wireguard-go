@@ -111,6 +111,7 @@ type autodrainingOutboundQueue struct {
 // All sends to the channel must be best-effort, because there may be no receivers.
 func newAutodrainingOutboundQueue(device *Device) *autodrainingOutboundQueue {
 	q := &autodrainingOutboundQueue{
+		// 1k
 		c: make(chan *QueueOutboundElement, QueueOutboundSize),
 	}
 	runtime.SetFinalizer(q, device.flushOutboundQueue)
@@ -120,6 +121,7 @@ func newAutodrainingOutboundQueue(device *Device) *autodrainingOutboundQueue {
 func (device *Device) flushOutboundQueue(q *autodrainingOutboundQueue) {
 	for {
 		select {
+		// 将剩下的继续发出去
 		case elem := <-q.c:
 			elem.Lock()
 			device.PutMessageBuffer(elem.buffer)

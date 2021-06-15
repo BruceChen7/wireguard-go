@@ -52,11 +52,13 @@ type Device struct {
 		publicKey  NoisePublicKey
 	}
 
+	// 限流器
 	rate struct {
 		underLoadUntil int64
 		limiter        ratelimiter.Ratelimiter
 	}
 
+	// 接收的peers
 	peers struct {
 		sync.RWMutex // protects keyMap
 		keyMap       map[NoisePublicKey]*Peer
@@ -78,6 +80,7 @@ type Device struct {
 		handshake  *handshakeQueue
 	}
 
+	// tun设备
 	tun struct {
 		device tun.Device
 		mtu    int32
@@ -127,6 +130,7 @@ func (device *Device) isUp() bool {
 func removePeerLocked(device *Device, peer *Peer, key NoisePublicKey) {
 	// stop routing and processing of packets
 	device.allowedips.RemoveByPeer(peer)
+	// 关掉每一个通道
 	peer.Stop()
 
 	// remove from peer map
@@ -277,6 +281,7 @@ func (device *Device) SetPrivateKey(sk NoisePrivateKey) error {
 func NewDevice(tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
 	device := new(Device)
 	device.state.state = uint32(deviceStateDown)
+	// 初始化channel
 	device.closed = make(chan struct{})
 	device.log = logger
 	device.net.bind = bind
@@ -288,6 +293,7 @@ func NewDevice(tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
 	}
 	device.tun.mtu = int32(mtu)
 	device.peers.keyMap = make(map[NoisePublicKey]*Peer)
+	// 限数器
 	device.rate.limiter.Init()
 	device.indexTable.Init()
 	device.PopulatePools()
@@ -360,6 +366,7 @@ func (device *Device) Close() {
 
 	// Remove peers before closing queues,
 	// because peers assume that queues are active.
+	// 移除所有的对端
 	device.RemoveAllPeers()
 
 	// We kept a reference to the encryption and decryption queues,
@@ -373,6 +380,7 @@ func (device *Device) Close() {
 	device.rate.limiter.Close()
 
 	device.log.Verbosef("Device closed")
+	// 通知主goroutine关闭
 	close(device.closed)
 }
 
@@ -403,6 +411,7 @@ func closeBindLocked(device *Device) error {
 	var err error
 	netc := &device.net
 	if netc.netlinkCancel != nil {
+		// 关闭netlink
 		netc.netlinkCancel.Cancel()
 	}
 	if netc.bind != nil {
@@ -467,7 +476,7 @@ func (device *Device) BindUpdate() error {
 	var err error
 	var recvFns []conn.ReceiveFunc
 	netc := &device.net
-	// 打开端口号
+	// 绑定udp端口
 	recvFns, netc.port, err = netc.bind.Open(netc.port)
 	if err != nil {
 		netc.port = 0
@@ -506,6 +515,7 @@ func (device *Device) BindUpdate() error {
 	device.queue.decryption.wg.Add(len(recvFns)) // each RoutineReceiveIncoming goroutine writes to device.queue.decryption
 	device.queue.handshake.wg.Add(len(recvFns))  // each RoutineReceiveIncoming goroutine writes to device.queue.handshake
 	for _, fn := range recvFns {
+		// 通过udp来接受数据
 		go device.RoutineReceiveIncoming(fn)
 	}
 

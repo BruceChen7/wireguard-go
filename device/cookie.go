@@ -239,6 +239,7 @@ func (st *CookieGenerator) AddMacs(msg []byte) {
 
 	// set mac2
 
+	// 2分钟
 	if time.Since(st.mac2.cookieSet) > CookieRefreshTime {
 		return
 	}

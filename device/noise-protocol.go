@@ -185,6 +185,7 @@ func (device *Device) CreateMessageInitiation(peer *Peer) (*MessageInitiation, e
 	defer handshake.mutex.Unlock()
 
 	// create ephemeral key
+	// 临时key
 	var err error
 	handshake.hash = InitialHash
 	handshake.chainKey = InitialChainKey
@@ -196,6 +197,7 @@ func (device *Device) CreateMessageInitiation(peer *Peer) (*MessageInitiation, e
 	handshake.mixHash(handshake.remoteStatic[:])
 
 	msg := MessageInitiation{
+		// 初始化message消息type
 		Type:      MessageInitiationType,
 		Ephemeral: handshake.localEphemeral.publicKey(),
 	}
@@ -443,6 +445,7 @@ func (device *Device) ConsumeMessageResponse(msg *MessageResponse) *Peer {
 		defer handshake.mutex.RUnlock()
 
 		if handshake.state != handshakeInitiationCreated {
+			// 初始状态有问题
 			return false
 		}
 

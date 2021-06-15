@@ -154,6 +154,7 @@ func (peer *Peer) SendHandshakeResponse() error {
 	packet := writer.Bytes()
 	peer.cookieGenerator.AddMacs(packet)
 
+	// 开始对称加密session
 	err = peer.BeginSymmetricSession()
 	if err != nil {
 		peer.device.log.Errorf("%v - Failed to derive keypair: %v", peer, err)
@@ -164,6 +165,7 @@ func (peer *Peer) SendHandshakeResponse() error {
 	peer.timersAnyAuthenticatedPacketTraversal()
 	peer.timersAnyAuthenticatedPacketSent()
 
+	// 发送packet
 	err = peer.SendBuffer(packet)
 	if err != nil {
 		peer.device.log.Errorf("%v - Failed to send handshake response: %v", peer, err)
@@ -220,10 +222,12 @@ func (device *Device) RoutineReadFromTUN() {
 			device.PutMessageBuffer(elem.buffer)
 			device.PutOutboundElement(elem)
 		}
+		// 获取包
 		elem = device.NewOutboundElement()
 
 		// read packet
 
+		// 前16给字节为header
 		offset := MessageTransportHeaderSize
 		size, err := device.tun.device.Read(elem.buffer[:], offset)
 
@@ -243,6 +247,7 @@ func (device *Device) RoutineReadFromTUN() {
 			continue
 		}
 
+		// 真正的payload
 		elem.packet = elem.buffer[offset : offset+size]
 
 		// lookup peer

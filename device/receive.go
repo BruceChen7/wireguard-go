@@ -68,6 +68,7 @@ func (peer *Peer) keepKeyFreshReceiving() {
  * Every time the bind is updated a new routine is started for
  * IPv4 and IPv6 (separately)
  */
+ // 获取udp消息
 func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 	recvName := recv.PrettyName()
 	defer func() {
@@ -129,7 +130,7 @@ func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 		switch msgType {
 
 		// check if transport
-
+		// 消息类型
 		case MessageTransportType:
 
 			// check size
@@ -267,12 +268,13 @@ func (device *Device) RoutineHandshake(id int) {
 
 			entry := device.indexTable.Lookup(reply.Receiver)
 
+			// 没有找到对应的接受者
 			if entry.peer == nil {
 				goto skip
 			}
 
 			// consume reply
-
+			// 如果正在运行
 			if peer := entry.peer; peer.isRunning.Get() {
 				device.log.Verbosef("Receiving cookie response from %s", elem.endpoint.DstToString())
 				if !peer.cookieGenerator.ConsumeReply(&reply) {
@@ -374,6 +376,7 @@ func (device *Device) RoutineHandshake(id int) {
 			peer.SetEndpointFromPacket(elem.endpoint)
 
 			device.log.Verbosef("%v - Received handshake response", peer)
+			// 增加接受的字节数
 			atomic.AddUint64(&peer.stats.rxBytes, uint64(len(elem.packet)))
 
 			// update timers
@@ -382,7 +385,7 @@ func (device *Device) RoutineHandshake(id int) {
 			peer.timersAnyAuthenticatedPacketReceived()
 
 			// derive keypair
-
+			// 开始对称加密交换的过程
 			err = peer.BeginSymmetricSession()
 
 			if err != nil {
@@ -391,6 +394,7 @@ func (device *Device) RoutineHandshake(id int) {
 			}
 
 			peer.timersSessionDerived()
+			// 握手完成
 			peer.timersHandshakeComplete()
 			peer.SendKeepalive()
 		}
@@ -422,6 +426,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			goto skip
 		}
 
+		// 对端
 		peer.SetEndpointFromPacket(elem.endpoint)
 		if peer.ReceivedWithKeypair(elem.keypair) {
 			peer.timersHandshakeComplete()
@@ -489,6 +494,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			}
 		}
 	skip:
+	        // 放回
 		device.PutMessageBuffer(elem.buffer)
 		device.PutInboundElement(elem)
 	}

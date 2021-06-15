@@ -246,6 +246,7 @@ func (table *AllowedIPs) RemoveByPeer(peer *Peer) {
 	defer table.mutex.Unlock()
 
 	var next *list.Element
+	// list的使用
 	for elem := peer.trieEntries.Front(); elem != nil; elem = next {
 		next = elem.Next()
 		node := elem.Value.(*trieEntry)

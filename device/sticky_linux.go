@@ -47,6 +47,7 @@ func (device *Device) startRouteListener(bind conn.Bind) (*rwcancel.RWCancel, er
 	return netlinkCancel, nil
 }
 
+// 路由规则到修改
 func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netlinkCancel *rwcancel.RWCancel) {
 	type peerEndpointPtr struct {
 		peer     *Peer

@@ -83,6 +83,7 @@ func main() {
 		interfaceName = os.Args[2]
 
 	default:
+		// 非前台启动
 		foreground = false
 		if len(os.Args) != 2 {
 			printUsage()
@@ -114,6 +115,7 @@ func main() {
 	tun, err := func() (tun.Device, error) {
 		tunFdStr := os.Getenv(ENV_WG_TUN_FD)
 		if tunFdStr == "" {
+			// 创建tun设备
 			return tun.CreateTUN(interfaceName, device.DefaultMTU)
 		}
 
@@ -250,6 +252,7 @@ func main() {
 				errs <- err
 				return
 			}
+			// 用来重载wireguide 配置信息
 			go device.IpcHandle(conn)
 		}
 	}()

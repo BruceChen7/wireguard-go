@@ -305,7 +305,7 @@ func (device *Device) RoutineHandshake(id int) {
 				}
 
 				// check ratelimiter
-
+				// 限流器
 				if !device.rate.limiter.Allow(elem.endpoint.DstIP()) {
 					goto skip
 				}
@@ -483,8 +483,10 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			goto skip
 		}
 
+		// tun设备写消息
 		_, err = device.tun.device.Write(elem.buffer[:MessageTransportOffsetContent+len(elem.packet)], MessageTransportOffsetContent)
 		if err != nil && !device.isClosed() {
+			// 打印error日志
 			device.log.Errorf("Failed to write packet to TUN device: %v", err)
 		}
 		if len(peer.queue.inbound.c) == 0 {

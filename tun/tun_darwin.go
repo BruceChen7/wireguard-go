@@ -32,6 +32,7 @@ type NativeTun struct {
 
 func retryInterfaceByIndex(index int) (iface *net.Interface, err error) {
 	for i := 0; i < 20; i++ {
+		// 找到相关的iface
 		iface, err = net.InterfaceByIndex(index)
 		if err != nil && errors.Is(err, syscall.ENOMEM) {
 			time.Sleep(time.Duration(i) * time.Second / 3)
@@ -55,6 +56,7 @@ func (tun *NativeTun) routineRouteListener(tunIfindex int) {
 	retry:
 		n, err := unix.Read(tun.routeSocket, data)
 		if err != nil {
+			// 可以重试的错误
 			if errno, ok := err.(syscall.Errno); ok && errno == syscall.EINTR {
 				goto retry
 			}
@@ -62,6 +64,7 @@ func (tun *NativeTun) routineRouteListener(tunIfindex int) {
 			return
 		}
 
+		// 必须>= 14
 		if n < 14 {
 			continue
 		}
@@ -70,10 +73,12 @@ func (tun *NativeTun) routineRouteListener(tunIfindex int) {
 			continue
 		}
 		ifindex := int(*(*uint16)(unsafe.Pointer(&data[12 /* ifindex */])))
+		// 如果不是自己感兴趣的设备index
 		if ifindex != tunIfindex {
 			continue
 		}
 
+		// 找到相关的接口
 		iface, err := retryInterfaceByIndex(ifindex)
 		if err != nil {
 			tun.errors <- err
@@ -92,6 +97,7 @@ func (tun *NativeTun) routineRouteListener(tunIfindex int) {
 
 		// MTU changes
 		if iface.MTU != statusMTU {
+			// tun设备相关情况的配置变化
 			tun.events <- EventMTUUpdate
 		}
 		statusMTU = iface.MTU
@@ -171,15 +177,18 @@ func CreateTUNFromFile(file *os.File, mtu int) (Device, error) {
 		return nil, err
 	}
 
+	// 创建路由socket
 	tun.routeSocket, err = unix.Socket(unix.AF_ROUTE, unix.SOCK_RAW, unix.AF_UNSPEC)
 	if err != nil {
 		tun.tunFile.Close()
 		return nil, err
 	}
 
+	// 进行路由
 	go tun.routineRouteListener(tunIfindex)
 
 	if mtu > 0 {
+		// 设置mtu
 		err = tun.setMTU(mtu)
 		if err != nil {
 			tun.Close()

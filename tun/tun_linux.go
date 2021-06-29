@@ -34,6 +34,7 @@ type NativeTun struct {
 	index                   int32      // if index
 	errors                  chan error // async error handling
 	events                  chan Event // device related events
+	//  不包含包信息，默认的每个数据包当传到用户空间时，都将包含一个附加的包头来保存包信息， 可和其它flag组合
 	nopi                    bool       // the device was passed IFF_NO_PI
 	netlinkSock             int
 	netlinkCancel           *rwcancel.RWCancel
@@ -117,6 +118,7 @@ func createNetlinkSocket() (int, error) {
 	return sock, nil
 }
 
+// 通过netlink来接收tun设备打开，mtu修改，消息发送
 func (tun *NativeTun) routineNetlinkListener() {
 	defer func() {
 		unix.Close(tun.netlinkSock)
@@ -165,13 +167,14 @@ func (tun *NativeTun) routineNetlinkListener() {
 			switch hdr.Type {
 		        // 消息接收完毕
 			case unix.NLMSG_DONE:
+				// 清空剩下到消息
 				remain = []byte{}
 
 			case unix.RTM_NEWLINK:
 				info := *(*unix.IfInfomsg)(unsafe.Pointer(&remain[unix.SizeofNlMsghdr]))
 				remain = remain[hdr.Len:]
 
-				// 不是这边的
+				// 不是该设备到
 				if info.Index != tun.index {
 					// not our interface
 					continue
@@ -239,6 +242,7 @@ func (tun *NativeTun) setMTU(n int) error {
 	}
 
 	// open datagram socket
+	// udp报文
 	fd, err := unix.Socket(
 		unix.AF_INET,
 		unix.SOCK_DGRAM,
@@ -361,6 +365,7 @@ func (tun *NativeTun) Write(buf []byte, offset int) (int, error) {
 		}
 	}
 
+	// 开始通过tun设备发出去
 	n, err := tun.tunFile.Write(buf)
 	if errors.Is(err, syscall.EBADFD) {
 		err = os.ErrClosed
@@ -462,7 +467,7 @@ func CreateTUN(name string, mtu int) (Device, error) {
 	return CreateTUNFromFile(fd, mtu)
 }
 
-// 首先创建虚拟网卡信息
+// 首先创建虚拟设备信息信息
 func CreateTUNFromFile(file *os.File, mtu int) (Device, error) {
 	tun := &NativeTun{
 		tunFile:                 file,
@@ -510,11 +515,13 @@ func CreateTUNFromFile(file *os.File, mtu int) (Device, error) {
 }
 
 func CreateUnmonitoredTUNFromFD(fd int) (Device, string, error) {
+	// 设置为non-block
 	err := unix.SetNonblock(fd, true)
 	if err != nil {
 		return nil, "", err
 	}
 	file := os.NewFile(uintptr(fd), "/dev/tun")
+	// tun设备
 	tun := &NativeTun{
 		tunFile: file,
 		events:  make(chan Event, 5),

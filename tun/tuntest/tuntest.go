@@ -19,7 +19,9 @@ func Ping(dst, src net.IP) []byte {
 	seq := uint16(0)
 
 	payload := make([]byte, 4)
+	// 端口号
 	binary.BigEndian.PutUint16(payload[0:], localPort)
+	// 序列号
 	binary.BigEndian.PutUint16(payload[2:], seq)
 
 	return genICMPv4(payload, dst, src)
@@ -46,6 +48,7 @@ func genICMPv4(payload []byte, dst, src net.IP) []byte {
 		icmpv4Echo           = 8
 		icmpv4ChecksumOffset = 2
 		icmpv4Size           = 8
+		// ipv4报文
 		ipv4Size             = 20
 		ipv4TotalLenOffset   = 2
 		ipv4ChecksumOffset   = 10
@@ -53,13 +56,15 @@ func genICMPv4(payload []byte, dst, src net.IP) []byte {
 		headerSize           = ipv4Size + icmpv4Size
 	)
 
+	// icmp报文 + ip报文
 	pkt := make([]byte, headerSize+len(payload))
 
 	ip := pkt[0:ipv4Size]
+	// 两个报文头
 	icmpv4 := pkt[ipv4Size : ipv4Size+icmpv4Size]
 
 	// https://tools.ietf.org/html/rfc792
-	icmpv4[0] = icmpv4Echo // type
+	icmpv4[0] = icmpv4Echo // type 8 是echo message
 	icmpv4[1] = 0          // code
 	chksum := ^checksum(icmpv4, checksum(payload, 0))
 	binary.BigEndian.PutUint16(icmpv4[icmpv4ChecksumOffset:], chksum)
@@ -80,6 +85,7 @@ func genICMPv4(payload []byte, dst, src net.IP) []byte {
 }
 
 type ChannelTUN struct {
+	// 两个通道
 	Inbound  chan []byte // incoming packets, closed on TUN close
 	Outbound chan []byte // outbound packets, blocks forever on TUN close
 
@@ -114,6 +120,7 @@ func (t *chTun) Read(data []byte, offset int) (int, error) {
 	select {
 	case <-t.c.closed:
 		return 0, os.ErrClosed
+	// 从改通道读
 	case msg := <-t.c.Outbound:
 		return copy(data[offset:], msg), nil
 	}
@@ -127,10 +134,12 @@ func (t *chTun) Write(data []byte, offset int) (int, error) {
 		return 0, io.EOF
 	}
 	msg := make([]byte, len(data)-offset)
+	// 拷贝消息
 	copy(msg, data[offset:])
 	select {
 	case <-t.c.closed:
 		return 0, os.ErrClosed
+	// 注入到tun设备
 	case t.c.Inbound <- msg:
 		return len(data) - offset, nil
 	}

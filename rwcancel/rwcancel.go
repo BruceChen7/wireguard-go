@@ -114,6 +114,7 @@ func (rw *RWCancel) Write(p []byte) (n int, err error) {
 }
 
 func (rw *RWCancel) Cancel() (err error) {
+	// 通过pipe来通知
 	_, err = rw.closingWriter.Write([]byte{0})
 	return
 }

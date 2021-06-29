@@ -36,12 +36,15 @@ func DiscardLogf(format string, args ...interface{}) {}
 func NewLogger(level int, prepend string) *Logger {
 	logger := &Logger{DiscardLogf, DiscardLogf}
 	logf := func(prefix string) func(string, ...interface{}) {
+		// 使用标准log的接口
 		return log.New(os.Stdout, prefix+": "+prepend, log.Ldate|log.Ltime).Printf
 	}
 	if level >= LogLevelVerbose {
+		// 设置debug级别
 		logger.Verbosef = logf("DEBUG")
 	}
 	if level >= LogLevelError {
+		// 实现相关实例
 		logger.Errorf = logf("ERROR")
 	}
 	return logger

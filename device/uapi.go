@@ -190,6 +190,7 @@ func (device *Device) IpcSetOperation(r io.Reader) (err error) {
 			// 处理网卡相关的配置
 			err = device.handleDeviceLine(key, value)
 		} else {
+			// 处理对等相关的配置信息
 			err = device.handlePeerLine(peer, key, value)
 		}
 		if err != nil {
@@ -230,7 +231,7 @@ func (device *Device) handleDeviceLine(key, value string) error {
 		device.net.port = uint16(port)
 		device.net.Unlock()
 
-		// 重新绑定
+		// 绑定更新到端口
 		if err := device.BindUpdate(); err != nil {
 			return ipcErrorf(ipc.IpcErrorPortInUse, "failed to set listen_port: %w", err)
 		}
@@ -343,7 +344,7 @@ func (device *Device) handlePeerLine(peer *ipcSetPeer, key, value string) error 
 			return ipcErrorf(ipc.IpcErrorInvalid, "failed to set preshared key: %w", err)
 		}
 
-	case "endpoint":
+	case "endpoint": // 更新peer
 		device.log.Verbosef("%v - UAPI: Updating endpoint", peer.Peer)
 		endpoint, err := device.net.bind.ParseEndpoint(value)
 		if err != nil {

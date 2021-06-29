@@ -68,12 +68,14 @@ type Device struct {
 	indexTable    IndexTable
 	cookieChecker CookieChecker
 
+	// message bubffer
 	pool struct {
 		messageBuffers   *WaitPool
 		inboundElements  *WaitPool
 		outboundElements *WaitPool
 	}
 
+	// 加解密
 	queue struct {
 		encryption *outboundQueue
 		decryption *inboundQueue
@@ -284,7 +286,9 @@ func NewDevice(tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
 	// 初始化channel
 	device.closed = make(chan struct{})
 	device.log = logger
+	// 初始化bind但接口
 	device.net.bind = bind
+	// 设置tun设备
 	device.tun.device = tunDevice
 	mtu, err := device.tun.device.MTU()
 	if err != nil {
@@ -361,6 +365,7 @@ func (device *Device) Close() {
 	atomic.StoreUint32(&device.state.state, uint32(deviceStateClosed))
 	device.log.Verbosef("Device closing")
 
+	// 关闭设备
 	device.tun.device.Close()
 	device.downLocked()
 
@@ -458,6 +463,7 @@ func (device *Device) BindSetMark(mark uint32) error {
 	return nil
 }
 
+// 绑定更新到事件
 func (device *Device) BindUpdate() error {
 	device.net.Lock()
 	defer device.net.Unlock()

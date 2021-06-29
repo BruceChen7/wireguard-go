@@ -27,6 +27,7 @@ type RatelimiterEntry struct {
 
 type Ratelimiter struct {
 	mu      sync.RWMutex
+	// 计算当前时间
 	timeNow func() time.Time
 
 	stopReset chan struct{} // send to reset, close to stop
@@ -39,6 +40,7 @@ func (rate *Ratelimiter) Close() {
 	defer rate.mu.Unlock()
 
 	if rate.stopReset != nil {
+		// close to stop
 		close(rate.stopReset)
 	}
 }
@@ -48,6 +50,7 @@ func (rate *Ratelimiter) Init() {
 	defer rate.mu.Unlock()
 
 	if rate.timeNow == nil {
+		// 记录当前时间
 		rate.timeNow = time.Now
 	}
 

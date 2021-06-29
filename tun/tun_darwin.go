@@ -257,7 +257,7 @@ func (tun *NativeTun) Write(buff []byte, offset int) (int, error) {
 	}
 
 	// write
-
+	// 真正的write
 	return tun.tunFile.Write(buff)
 }
 

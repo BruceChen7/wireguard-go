@@ -32,6 +32,7 @@ type trieEntry struct {
 
 func isLittleEndian() bool {
 	one := uint32(1)
+	// 小端模式
 	return *(*byte)(unsafe.Pointer(&one)) != 0
 }
 
@@ -220,6 +221,7 @@ func (node *trieEntry) lookup(ip net.IP) *Peer {
 		bit := node.choose(ip)
 		node = node.child[bit]
 	}
+	// 没有找到
 	return found
 }
 

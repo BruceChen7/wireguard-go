@@ -28,8 +28,10 @@ type QueueHandshakeElement struct {
 	buffer   *[MaxMessageSize]byte
 }
 
+// 队列
 type QueueInboundElement struct {
 	sync.Mutex
+	// udp最大报文 buffer
 	buffer   *[MaxMessageSize]byte
 	packet   []byte
 	counter  uint64
@@ -70,6 +72,7 @@ func (peer *Peer) keepKeyFreshReceiving() {
  */
  // 获取udp消息
 func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
+	// 获取相关goroutine信息
 	recvName := recv.PrettyName()
 	defer func() {
 		device.log.Verbosef("Routine: receive incoming %s - stopped", recvName)
@@ -93,21 +96,25 @@ func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 	)
 
 	for {
+		// 获取一个udp报文
 		size, endpoint, err = recv(buffer[:])
 
 		if err != nil {
+			// 返回buffer
 			device.PutMessageBuffer(buffer)
-			// 如果链接关闭
+			// 如果udp链接关闭
 			if errors.Is(err, net.ErrClosed) {
 				return
 			}
 			device.log.Verbosef("Failed to receive %s packet: %v", recvName, err)
 			if neterr, ok := err.(net.Error); ok && !neterr.Temporary() {
+				// 直接返回
 				return
 			}
 			if deathSpiral < 10 {
 				deathSpiral++
 				time.Sleep(time.Second / 3)
+				// 重新获取一个buffer
 				buffer = device.GetMessageBuffer()
 				continue
 			}
@@ -146,19 +153,21 @@ func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 			)
 			// 获取接收者
 			value := device.indexTable.Lookup(receiver)
+			// 迷药对
 			keypair := value.keypair
 			if keypair == nil {
 				continue
 			}
 
 			// check keypair expiry
-
+			// 检查是否过期
 			if keypair.created.Add(RejectAfterTime).Before(time.Now()) {
 				continue
 			}
 
 			// create work element
 			peer := value.peer
+			// 写入到tun设备中的数据
 			elem := device.GetInboundElement()
 			elem.packet = packet
 			elem.buffer = buffer
@@ -170,10 +179,12 @@ func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 
 			// add to decryption queues
 			if peer.isRunning.Get() {
+				// 放到对方的接收队列中
 				peer.queue.inbound.c <- elem
 				device.queue.decryption.c <- elem
 				buffer = device.GetMessageBuffer()
 			} else {
+				// 积压到设备中
 				device.PutInboundElement(elem)
 			}
 			continue
@@ -404,6 +415,7 @@ func (device *Device) RoutineHandshake(id int) {
 }
 
 func (peer *Peer) RoutineSequentialReceiver() {
+	// 获取tun设备
 	device := peer.device
 	defer func() {
 		device.log.Verbosef("%v - Routine: sequential receiver - stopped", peer)
@@ -411,6 +423,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 	}()
 	device.log.Verbosef("%v - Routine: sequential receiver - started", peer)
 
+	// 获取对应的packet
 	for elem := range peer.queue.inbound.c {
 		if elem == nil {
 			return
@@ -426,7 +439,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			goto skip
 		}
 
-		// 对端
+		// 改变源信息
 		peer.SetEndpointFromPacket(elem.endpoint)
 		if peer.ReceivedWithKeypair(elem.keypair) {
 			peer.timersHandshakeComplete()
@@ -445,6 +458,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		peer.timersDataReceived()
 
 		switch elem.packet[0] >> 4 {
+		// 如果是ipv4
 		case ipv4.Version:
 			if len(elem.packet) < ipv4.HeaderLen {
 				goto skip
@@ -455,7 +469,9 @@ func (peer *Peer) RoutineSequentialReceiver() {
 				goto skip
 			}
 			elem.packet = elem.packet[:length]
+			// 源地址
 			src := elem.packet[IPv4offsetSrc : IPv4offsetSrc+net.IPv4len]
+			// ip列表中对应的
 			if device.allowedips.Lookup(src) != peer {
 				device.log.Verbosef("IPv4 packet with disallowed source address from %v", peer)
 				goto skip
@@ -483,7 +499,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			goto skip
 		}
 
-		// tun设备写消息
+		// 通过tun设备写消息到网络栈，通过网络栈发出去
 		_, err = device.tun.device.Write(elem.buffer[:MessageTransportOffsetContent+len(elem.packet)], MessageTransportOffsetContent)
 		if err != nil && !device.isClosed() {
 			// 打印error日志

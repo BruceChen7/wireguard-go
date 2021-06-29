@@ -41,7 +41,7 @@ func (device *Device) startRouteListener(bind conn.Bind) (*rwcancel.RWCancel, er
 		return nil, err
 	}
 
-	// 用来listen
+	// 用来listen 路由规则的修改
 	go device.routineRouteListener(bind, netlinkSock, netlinkCancel)
 
 	return netlinkCancel, nil

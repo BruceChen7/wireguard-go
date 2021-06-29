@@ -37,6 +37,7 @@ type Device struct {
 		sync.Mutex
 	}
 
+	// 网络协议栈
 	net struct {
 		stopping sync.WaitGroup
 		sync.RWMutex
@@ -321,7 +322,9 @@ func NewDevice(tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
 
 	device.state.stopping.Add(1)      // RoutineReadFromTUN
 	device.queue.encryption.wg.Add(1) // RoutineReadFromTUN
+	// 从tun设备中读
 	go device.RoutineReadFromTUN()
+	// 读取tun设备的event
 	go device.RoutineTUNEventReader()
 
 	return device
@@ -463,7 +466,7 @@ func (device *Device) BindSetMark(mark uint32) error {
 	return nil
 }
 
-// 绑定更新到事件
+// 绑定更新事件
 func (device *Device) BindUpdate() error {
 	device.net.Lock()
 	defer device.net.Unlock()
@@ -488,6 +491,7 @@ func (device *Device) BindUpdate() error {
 		netc.port = 0
 		return err
 	}
+	// 用来创建netlink获取接口相关的事件，包含接口up，down，路由规则等信息
 	netc.netlinkCancel, err = device.startRouteListener(netc.bind)
 	if err != nil {
 		netc.bind.Close()

@@ -103,6 +103,7 @@ again:
 	port := int(uport)
 	var ipv4, ipv6 *net.UDPConn
 
+	// listen ipv4
 	ipv4, port, err = listenNet("udp4", port)
 	if err != nil && !errors.Is(err, syscall.EAFNOSUPPORT) {
 		return nil, 0, err

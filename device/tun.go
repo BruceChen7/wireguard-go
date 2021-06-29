@@ -18,6 +18,7 @@ func (device *Device) RoutineTUNEventReader() {
 	device.log.Verbosef("Routine: event worker - started")
 
 	for event := range device.tun.device.Events() {
+		// mtu更新
 		if event&tun.EventMTUUpdate != 0 {
 			mtu, err := device.tun.device.MTU()
 			if err != nil {

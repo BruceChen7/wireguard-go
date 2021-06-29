@@ -139,6 +139,7 @@ func (peer *Peer) SendBuffer(buffer []byte) error {
 		return errors.New("no known endpoint for peer")
 	}
 
+	// 通过udp来发送出去
 	err := peer.device.net.bind.Send(buffer, peer.endpoint)
 	// 写数据统计
 	if err == nil {
@@ -204,8 +205,9 @@ func (peer *Peer) Start() {
 
 	device.flushInboundQueue(peer.queue.inbound)
 	device.flushOutboundQueue(peer.queue.outbound)
-	// 接受者和发送者
+	// 发送者
 	go peer.RoutineSequentialSender()
+	// 接收从tun设备发过来的消息，通过tun设备向网络栈传递
 	go peer.RoutineSequentialReceiver()
 
 	// 正在运行

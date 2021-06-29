@@ -112,6 +112,7 @@ func (bind *LinuxSocketBind) Open(port uint16) ([]ReceiveFunc, uint16, error) {
 	var newPort uint16
 	var tries int
 
+	// 只要有一个其中绑定了
 	if bind.sock4 != -1 || bind.sock6 != -1 {
 		return nil, 0, ErrBindAlreadyOpen
 	}
@@ -150,6 +151,7 @@ again:
 	var fns []ReceiveFunc
 	if sock4 != -1 {
 		bind.sock4 = sock4
+		// 从udp中获取数据
 		fns = append(fns, bind.receiveIPv4)
 	}
 	if sock6 != -1 {
@@ -228,6 +230,7 @@ func (bind *LinuxSocketBind) Close() error {
 func (bind *LinuxSocketBind) receiveIPv4(buf []byte) (int, Endpoint, error) {
 	bind.mu.RLock()
 	defer bind.mu.RUnlock()
+	// 没有相关的套接字
 	if bind.sock4 == -1 {
 		return 0, nil, net.ErrClosed
 	}
@@ -343,7 +346,7 @@ func zoneToUint32(zone string) (uint32, error) {
 func create4(port uint16) (int, uint16, error) {
 
 	// create socket
-
+	// 创建udp socket
 	fd, err := unix.Socket(
 		unix.AF_INET,
 		unix.SOCK_DGRAM,
@@ -354,6 +357,7 @@ func create4(port uint16) (int, uint16, error) {
 		return -1, 0, err
 	}
 
+	// 设置成ipv4
 	addr := unix.SockaddrInet4{
 		Port: int(port),
 	}
@@ -370,6 +374,7 @@ func create4(port uint16) (int, uint16, error) {
 			return err
 		}
 
+		// 绑定端口号
 		return unix.Bind(fd, &addr)
 	}(); err != nil {
 		unix.Close(fd)
@@ -539,6 +544,7 @@ func receive4(sock int, buff []byte, end *LinuxSocketEndpoint) (int, error) {
 	end.isV6 = false
 
 	if newDst4, ok := newDst.(*unix.SockaddrInet4); ok {
+		// 更新地址信息
 		*end.dst4() = *newDst4
 	}
 
@@ -547,6 +553,7 @@ func receive4(sock int, buff []byte, end *LinuxSocketEndpoint) (int, error) {
 	if cmsg.cmsghdr.Level == unix.IPPROTO_IP &&
 		cmsg.cmsghdr.Type == unix.IP_PKTINFO &&
 		cmsg.cmsghdr.Len >= unix.SizeofInet4Pktinfo {
+		// 更新源信息
 		end.src4().Src = cmsg.pktinfo.Spec_dst
 		end.src4().Ifindex = cmsg.pktinfo.Ifindex
 	}

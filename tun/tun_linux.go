@@ -124,6 +124,7 @@ func (tun *NativeTun) routineNetlinkListener() {
 		unix.Close(tun.netlinkSock)
 		tun.hackListenerClosed.Lock()
 		close(tun.events)
+		// 优雅中止
 		tun.netlinkCancel.Close()
 	}()
 
@@ -410,6 +411,7 @@ func (tun *NativeTun) Close() error {
 		if tun.statusListenersShutdown != nil {
 			close(tun.statusListenersShutdown)
 			if tun.netlinkCancel != nil {
+				// 通知读端和写端关闭
 				err1 = tun.netlinkCancel.Cancel()
 			}
 		} else if tun.events != nil {
@@ -494,6 +496,7 @@ func CreateTUNFromFile(file *os.File, mtu int) (Device, error) {
 	if err != nil {
 		return nil, err
 	}
+	// 包裹住netlink
 	tun.netlinkCancel, err = rwcancel.NewRWCancel(tun.netlinkSock)
 	if err != nil {
 		unix.Close(tun.netlinkSock)

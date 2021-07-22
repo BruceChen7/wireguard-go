@@ -45,7 +45,7 @@ func UAPIOpen(name string) (*os.File, error) {
 	}
 
 	oldUmask := unix.Umask(0077)
-	// 恢复之前的master
+	// 恢复之前的mask
 	defer unix.Umask(oldUmask)
 
 	// 创建unix桃姐子
@@ -65,5 +65,6 @@ func UAPIOpen(name string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
+	// 返回对应的文件结构
 	return listener.File()
 }

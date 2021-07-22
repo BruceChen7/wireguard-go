@@ -26,11 +26,12 @@ type RWCancel struct {
 }
 
 func NewRWCancel(fd int) (*RWCancel, error) {
-	// 设置为non-block
+	// 将被wrap的fd设置为non-block
 	err := unix.SetNonblock(fd, true)
 	if err != nil {
 		return nil, err
 	}
+	// netlink
 	rwcancel := RWCancel{fd: fd}
 
 	// 创建pipe
@@ -49,7 +50,7 @@ func RetryAfterError(err error) bool {
 func (rw *RWCancel) ReadyRead() bool {
 	closeFd := int32(rw.closingReader.Fd())
 
-	// 监听读事件
+	// 监听读事件, 2个fd
 	pollFds := []unix.PollFd{{Fd: int32(rw.fd), Events: unix.POLLIN}, {Fd: closeFd, Events: unix.POLLIN}}
 	var err error
 	for {
@@ -81,6 +82,7 @@ func (rw *RWCancel) ReadyWrite() bool {
 		return false
 	}
 
+	// 已经关闭
 	if pollFds[1].Revents != 0 {
 		return false
 	}
@@ -119,6 +121,7 @@ func (rw *RWCancel) Cancel() (err error) {
 	return
 }
 
+// 关闭读端和斜段
 func (rw *RWCancel) Close() {
 	rw.closingReader.Close()
 	rw.closingWriter.Close()

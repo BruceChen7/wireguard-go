@@ -277,7 +277,7 @@ func (peer *ipcSetPeer) handlePostConfig() {
 func (device *Device) handlePublicKeyLine(peer *ipcSetPeer, value string) error {
 	// Load/create the peer we are configuring.
 	var publicKey NoisePublicKey
-	// 从16进制
+	// 16进制，public key
 	err := publicKey.FromHex(value)
 	if err != nil {
 		return ipcErrorf(ipc.IpcErrorInvalid, "failed to get peer by public key: %w", err)

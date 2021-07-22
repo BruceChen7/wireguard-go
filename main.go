@@ -229,6 +229,7 @@ func main() {
 		return
 	}
 
+	// 创建一个tun设备，绑定ip
 	device := device.NewDevice(tun, conn.NewDefaultBind(), logger)
 
 	logger.Verbosef("Device started")
@@ -236,7 +237,7 @@ func main() {
 	errs := make(chan error)
 	term := make(chan os.Signal, 1)
 
-	// listen unix套接字
+	// listen unix套接字，用来控制设置配置的热加载问题
 	uapi, err := ipc.UAPIListen(interfaceName, fileUAPI)
 	if err != nil {
 		logger.Errorf("Failed to listen on uapi socket: %v", err)

@@ -59,6 +59,7 @@ func UAPIListen(name string, file *os.File) (net.Listener, error) {
 		return nil, err
 	}
 
+	// 设置unix listener
 	if unixListener, ok := listener.(*net.UnixListener); ok {
 		unixListener.SetUnlinkOnClose(true)
 	}
@@ -71,6 +72,7 @@ func UAPIListen(name string, file *os.File) (net.Listener, error) {
 
 	// watch for deletion of socket
 
+	// 获取相关的path
 	socketPath := sockPath(name)
 
 	uapi.inotifyFd, err = unix.InotifyInit()

@@ -17,6 +17,7 @@ import (
 	"golang.zx2c4.com/wireguard/tun"
 )
 
+// 整个虚拟设备
 type Device struct {
 	state struct {
 		// state holds the device's state. It is accessed atomically.
@@ -42,6 +43,7 @@ type Device struct {
 		stopping sync.WaitGroup
 		sync.RWMutex
 		bind          conn.Bind // bind interface
+		// 网络协议栈的netlink，用来更新路由信息
 		netlinkCancel *rwcancel.RWCancel
 		port          uint16 // listening port
 		fwmark        uint32 // mark value (0 = disabled)
@@ -174,6 +176,7 @@ func (device *Device) changeState(want deviceState) (err error) {
 // upLocked attempts to bring the device up and reports whether it succeeded.
 // The caller must hold device.state.mu and is responsible for updating device.state.state.
 func (device *Device) upLocked() error {
+	// 添加设备路由信息的添加
 	if err := device.BindUpdate(); err != nil {
 		device.log.Errorf("Unable to update bind: %v", err)
 		return err
@@ -183,6 +186,7 @@ func (device *Device) upLocked() error {
 	for _, peer := range device.peers.keyMap {
 		peer.Start()
 		if atomic.LoadUint32(&peer.persistentKeepaliveInterval) > 0 {
+			// 设置keep alive包
 			peer.SendKeepalive()
 		}
 	}
@@ -417,6 +421,7 @@ func (device *Device) SendKeepalivesToPeersWithCurrentKeypair() {
 // The caller must hold the net mutex.
 func closeBindLocked(device *Device) error {
 	var err error
+	// 设备的来路由事件
 	netc := &device.net
 	if netc.netlinkCancel != nil {
 		// 关闭netlink
@@ -491,7 +496,7 @@ func (device *Device) BindUpdate() error {
 		netc.port = 0
 		return err
 	}
-	// 用来创建netlink获取接口相关的事件，包含接口up，down，路由规则等信息
+	// 用来创建netlink获取接口的路由规则等信息
 	netc.netlinkCancel, err = device.startRouteListener(netc.bind)
 	if err != nil {
 		netc.bind.Close()

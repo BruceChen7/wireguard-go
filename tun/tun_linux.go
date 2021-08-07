@@ -36,7 +36,9 @@ type NativeTun struct {
 	events                  chan Event // device related events
 	//  不包含包信息，默认的每个数据包当传到用户空间时，都将包含一个附加的包头来保存包信息， 可和其它flag组合
 	nopi                    bool       // the device was passed IFF_NO_PI
+	// 用来知道tun设备的关闭
 	netlinkSock             int
+	// 用来监听路由信息改变
 	netlinkCancel           *rwcancel.RWCancel
 	hackListenerClosed      sync.Mutex
 	statusListenersShutdown chan struct{}
@@ -133,6 +135,7 @@ func (tun *NativeTun) routineNetlinkListener() {
 		var msgn int
 		for {
 			// 接受消息
+			// msg[:]用来获取slice的首地址
 			msgn, _, _, _, err = unix.Recvmsg(tun.netlinkSock, msg[:], nil, 0)
 			// 不能重试，直接退出
 			if err == nil || !rwcancel.RetryAfterError(err) {
@@ -157,6 +160,7 @@ func (tun *NativeTun) routineNetlinkListener() {
 
 		wasEverUp := false
 		// 解析netlink的协议
+		// 又一个完整的协议包
 		for remain := msg[:msgn]; len(remain) >= unix.SizeofNlMsghdr; {
 
 			hdr := *(*unix.NlMsghdr)(unsafe.Pointer(&remain[0]))
@@ -492,6 +496,7 @@ func CreateTUNFromFile(file *os.File, mtu int) (Device, error) {
 	}
 
 	// 创建netlink socket
+	// netlink socket是用来知道tun设备的关闭和开启，路由信息
 	tun.netlinkSock, err = createNetlinkSocket()
 	if err != nil {
 		return nil, err
@@ -504,6 +509,7 @@ func CreateTUNFromFile(file *os.File, mtu int) (Device, error) {
 	}
 
 	tun.hackListenerClosed.Lock()
+	// 两个goroutine，一个用来监听tun设备的事件
 	go tun.routineNetlinkListener()
 	go tun.routineHackListener() // cross namespace
 

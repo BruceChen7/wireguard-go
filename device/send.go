@@ -86,6 +86,7 @@ func (peer *Peer) SendKeepalive() {
 			peer.device.PutOutboundElement(elem)
 		}
 	}
+	// 首先发送暂存的包
 	peer.SendStagedPackets()
 }
 

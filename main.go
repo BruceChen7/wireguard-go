@@ -132,6 +132,7 @@ func main() {
 		}
 
 		file := os.NewFile(uintptr(fd), "")
+		// 创建tun设备
 		return tun.CreateTUNFromFile(file, device.DefaultMTU)
 	}()
 

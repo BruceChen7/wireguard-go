@@ -19,8 +19,9 @@ import (
 
 type RWCancel struct {
 	// 这个fd 是netlinksock
-	fd            int
+	fd int
 	// 是os pipe
+	// 用来关闭读端
 	closingReader *os.File
 	closingWriter *os.File
 }
@@ -44,13 +45,14 @@ func NewRWCancel(fd int) (*RWCancel, error) {
 }
 
 func RetryAfterError(err error) bool {
+	// 如果是eagin或者interrupt
 	return errors.Is(err, syscall.EAGAIN) || errors.Is(err, syscall.EINTR)
 }
 
 func (rw *RWCancel) ReadyRead() bool {
 	closeFd := int32(rw.closingReader.Fd())
 
-	// 监听读事件, 2个fd
+	// 监听读事件, 2个fd, 一个用来
 	pollFds := []unix.PollFd{{Fd: int32(rw.fd), Events: unix.POLLIN}, {Fd: closeFd, Events: unix.POLLIN}}
 	var err error
 	for {
@@ -69,6 +71,7 @@ func (rw *RWCancel) ReadyRead() bool {
 }
 
 func (rw *RWCancel) ReadyWrite() bool {
+	// 注意这里的fd是pipe 的read fd
 	closeFd := int32(rw.closingReader.Fd())
 	pollFds := []unix.PollFd{{Fd: int32(rw.fd), Events: unix.POLLOUT}, {Fd: closeFd, Events: unix.POLLOUT}}
 	var err error
@@ -95,6 +98,7 @@ func (rw *RWCancel) Read(p []byte) (n int, err error) {
 		if err == nil || !RetryAfterError(err) {
 			return n, err
 		}
+		// 直接返回连接关闭
 		if !rw.ReadyRead() {
 			return 0, os.ErrClosed
 		}
@@ -121,7 +125,7 @@ func (rw *RWCancel) Cancel() (err error) {
 	return
 }
 
-// 关闭读端和斜段
+// 关闭读端和写端
 func (rw *RWCancel) Close() {
 	rw.closingReader.Close()
 	rw.closingWriter.Close()

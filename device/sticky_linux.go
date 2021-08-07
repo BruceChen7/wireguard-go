@@ -70,7 +70,7 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 			if err == nil || !rwcancel.RetryAfterError(err) {
 				break
 			}
-			// 外部事件
+			// 在读一次
 			if !netlinkCancel.ReadyRead() {
 				return
 			}
@@ -80,6 +80,17 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 		}
 
 		// 消息是4字节对齐
+		// 0                   1                   2                   3
+		// 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+		// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+		// |                          Length                             |
+		// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+		// |            Type              |           Flags              |
+		// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+		// |                      Sequence Number                        |
+		// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+		// |                      Process ID (PID)                       |
+		// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 		for remain := msg[:msgn]; len(remain) >= unix.SizeofNlMsghdr; {
 
 			// https://medium.com/@mdlayher/linux-netlink-and-go-part-1-netlink-4781aaeeaca8
@@ -87,7 +98,7 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 			hdr := *(*unix.NlMsghdr)(unsafe.Pointer(&remain[0]))
 
 			// 不是一个完整的包
-			// len表示整个的包
+			// hdr.Len表示整个的包
 			if uint(hdr.Len) > uint(len(remain)) {
 				break
 			}
@@ -100,6 +111,7 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 					if uint(len(remain)) < uint(hdr.Len) {
 						break
 					}
+					// 完整的大于一个routine的消息 + 头
 					if hdr.Len > unix.SizeofNlMsghdr+unix.SizeofRtMsg {
 						// netlink 属性
 						attr := remain[unix.SizeofNlMsghdr+unix.SizeofRtMsg:]
@@ -109,6 +121,7 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 							}
 							attrhdr := *(*unix.RtAttr)(unsafe.Pointer(&attr[0]))
 							if attrhdr.Len < unix.SizeofRtAttr || uint(len(attr)) < uint(attrhdr.Len) {
+								// 不是一个完整的属性
 								break
 							}
 							// 如果是设置output interface index
@@ -117,10 +130,12 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 								// 设备索引号
 								ifidx := *(*uint32)(unsafe.Pointer(&attr[unix.SizeofRtAttr]))
 								reqPeerLock.Lock()
+								// 如果是空，没有初始化
 								if reqPeer == nil {
 									reqPeerLock.Unlock()
 									break
 								}
+								// 找到请求的节点
 								pePtr, ok := reqPeer[hdr.Seq]
 								reqPeerLock.Unlock()
 								if !ok {
@@ -131,6 +146,8 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 									pePtr.peer.Unlock()
 									break
 								}
+
+								// 是当前的设备号
 								if uint32(pePtr.peer.endpoint.(*conn.LinuxSocketEndpoint).Src4().Ifindex) == ifidx {
 									pePtr.peer.Unlock()
 									break
@@ -139,9 +156,11 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 								pePtr.peer.endpoint.(*conn.LinuxSocketEndpoint).ClearSrc()
 								pePtr.peer.Unlock()
 							}
+							// 获取下一个属性
 							attr = attr[attrhdr.Len:]
 						} // 结束遍历所有的属性
 					}
+					// 不是一个完整的消息
 					break
 				}  // end of if
 				reqPeerLock.Lock()
@@ -158,11 +177,14 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 							peer.RUnlock()
 							continue
 						}
+						// 对端的节点地址信息
 						nativeEP, _ := peer.endpoint.(*conn.LinuxSocketEndpoint)
 						if nativeEP == nil {
 							peer.RUnlock()
 							continue
 						}
+
+						// 如果不是本设备
 						if nativeEP.IsV6() || nativeEP.Src4().Ifindex == 0 {
 							peer.RUnlock()
 							break
@@ -173,13 +195,17 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 							hdr     unix.NlMsghdr
 							// 消息本身
 							msg     unix.RtMsg
+							// 消息属性
 							dsthdr  unix.RtAttr
+							// 目的地址
 							dst     [4]byte
+							// 源地址信息
 							srchdr  unix.RtAttr
 							src     [4]byte
 							markhdr unix.RtAttr
 							mark    uint32
 						}{
+							// 请求获取路由
 							unix.NlMsghdr{
 								Type:  uint16(unix.RTM_GETROUTE),
 								Flags: unix.NLM_F_REQUEST,
@@ -191,10 +217,12 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 								Dst_len: 32,
 								Src_len: 32,
 							},
+							//  目标属性
 							unix.RtAttr{
 								Len:  8,
 								Type: unix.RTA_DST, // 路由的目标地址
 							},
+							// 改写目的地址
 							nativeEP.Dst4().Addr,
 							unix.RtAttr{
 								Len:  8,
@@ -210,6 +238,7 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 						// 设置整个消息的长度
 						nlmsg.hdr.Len = uint32(unsafe.Sizeof(nlmsg))
 						reqPeerLock.Lock()
+						// 发起请求
 						reqPeer[i] = peerEndpointPtr{
 							peer:     peer,
 							endpoint: &peer.endpoint,
@@ -217,7 +246,7 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 						reqPeerLock.Unlock()
 						peer.RUnlock()
 						i++
-						// 通过net给link发送消息
+						// 通过netlink发送消息给内核，获取相关节点的路由信息
 						_, err := netlinkCancel.Write((*[unsafe.Sizeof(nlmsg)]byte)(unsafe.Pointer(&nlmsg))[:])
 						if err != nil {
 							break
@@ -225,7 +254,7 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 					}
 					device.peers.RUnlock()
 				}()
-			} // end of case
+			} // end of case // 是路由的消息
 
 			// 处理来一个完整的包
 			remain = remain[hdr.Len:]

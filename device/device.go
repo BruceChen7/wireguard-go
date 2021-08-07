@@ -326,7 +326,7 @@ func NewDevice(tunDevice tun.Device, bind conn.Bind, logger *Logger) *Device {
 
 	device.state.stopping.Add(1)      // RoutineReadFromTUN
 	device.queue.encryption.wg.Add(1) // RoutineReadFromTUN
-	// 从tun设备中读
+	// 从tun设备中读数据
 	go device.RoutineReadFromTUN()
 	// 读取tun设备的event
 	go device.RoutineTUNEventReader()

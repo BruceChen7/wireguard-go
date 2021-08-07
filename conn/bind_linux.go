@@ -28,7 +28,9 @@ type ipv6Source struct {
 
 type LinuxSocketEndpoint struct {
 	mu   sync.Mutex
+	// 目标地址
 	dst  [unsafe.Sizeof(unix.SockaddrInet6{})]byte
+	// 源地址
 	src  [unsafe.Sizeof(ipv6Source{})]byte
 	isV6 bool
 }

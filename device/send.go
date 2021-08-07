@@ -223,17 +223,19 @@ func (device *Device) RoutineReadFromTUN() {
 			device.PutMessageBuffer(elem.buffer)
 			device.PutOutboundElement(elem)
 		}
-		// 获取包
+		// 获取一个buffered 数据结构
 		elem = device.NewOutboundElement()
 
 		// read packet
 
 		// 前16给字节为header
 		offset := MessageTransportHeaderSize
+		// 通过tun设备读取
 		size, err := device.tun.device.Read(elem.buffer[:], offset)
 
 		if err != nil {
 			if !device.isClosed() {
+				// 非设备关闭
 				if !errors.Is(err, os.ErrClosed) {
 					device.log.Errorf("Failed to read packet from TUN device: %v", err)
 				}
@@ -421,6 +423,7 @@ func (peer *Peer) RoutineSequentialSender() {
 	}()
 	device.log.Verbosef("%v - Routine: sequential sender - started", peer)
 
+	// 发送给peer
 	for elem := range peer.queue.outbound.c {
 		if elem == nil {
 			return

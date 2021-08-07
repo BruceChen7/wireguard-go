@@ -55,6 +55,7 @@ func newInboundQueue() *inboundQueue {
 
 // A handshakeQueue is similar to an outboundQueue; see those docs.
 type handshakeQueue struct {
+	// buffered chan
 	c  chan QueueHandshakeElement
 	wg sync.WaitGroup
 }

@@ -24,6 +24,7 @@ import (
 	"golang.zx2c4.com/wireguard/rwcancel"
 )
 
+// 路由监控
 func (device *Device) startRouteListener(bind conn.Bind) (*rwcancel.RWCancel, error) {
 	// 如果不是linux socket bind
 	if _, ok := bind.(*conn.LinuxSocketBind); !ok {
@@ -189,11 +190,12 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 							peer.RUnlock()
 							break
 						}
+						// http://iijean.blogspot.com/2010/03/howto-get-list-of-network-interfaces-in.html
 						// netlink message
 						nlmsg := struct {
 							// msg header
 							hdr     unix.NlMsghdr
-							// 消息本身
+							// 路由消息本身
 							msg     unix.RtMsg
 							// 消息属性
 							dsthdr  unix.RtAttr
@@ -222,7 +224,8 @@ func (device *Device) routineRouteListener(bind conn.Bind, netlinkSock int, netl
 								Len:  8,
 								Type: unix.RTA_DST, // 路由的目标地址
 							},
-							// 改写目的地址
+
+							// 目的地址
 							nativeEP.Dst4().Addr,
 							unix.RtAttr{
 								Len:  8,
@@ -271,6 +274,7 @@ func createNetlinkRouteSocket() (int, error) {
 	}
 	saddr := &unix.SockaddrNetlink{
 		Family: unix.AF_NETLINK,
+		// ipv4的路由
 		Groups: unix.RTMGRP_IPV4_ROUTE,
 	}
 	err = unix.Bind(sock, saddr)

@@ -221,7 +221,7 @@ func (node *trieEntry) lookup(ip net.IP) *Peer {
 		bit := node.choose(ip)
 		node = node.child[bit]
 	}
-	// 没有找到
+	// 没有找到默认为nil
 	return found
 }
 

@@ -250,6 +250,7 @@ func (tun *NativeTun) Write(buff []byte, offset int) (int, error) {
 	buff[1] = 0x00
 	buff[2] = 0x00
 
+	//  填充ipv4
 	if buff[4]>>4 == ipv6.Version {
 		buff[3] = unix.AF_INET6
 	} else {

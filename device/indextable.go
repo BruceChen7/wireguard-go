@@ -91,6 +91,7 @@ func (table *IndexTable) NewIndexForHandshake(peer *Peer, handshake *Handshake) 
 	}
 }
 
+// 索引表
 func (table *IndexTable) Lookup(id uint32) IndexTableEntry {
 	table.RLock()
 	defer table.RUnlock()

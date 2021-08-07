@@ -56,6 +56,7 @@ const (
 	MessageInitiationType  = 1
 	MessageResponseType    = 2
 	MessageCookieReplyType = 3
+	// 传输到数据
 	MessageTransportType   = 4
 )
 

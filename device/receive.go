@@ -70,7 +70,7 @@ func (peer *Peer) keepKeyFreshReceiving() {
  * Every time the bind is updated a new routine is started for
  * IPv4 and IPv6 (separately)
  */
- // 获取udp消息
+// 获取udp消息
 func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 	// 获取相关goroutine信息
 	recvName := recv.PrettyName()
@@ -127,7 +127,7 @@ func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 		}
 
 		// check size of packet
-
+		// 报文
 		packet := buffer[:size]
 		// 前4个字节是msgType
 		msgType := binary.LittleEndian.Uint32(packet[:4])
@@ -149,11 +149,12 @@ func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 			// lookup key pair
 
 			receiver := binary.LittleEndian.Uint32(
+				// 4到8
 				packet[MessageTransportOffsetReceiver:MessageTransportOffsetCounter],
 			)
 			// 获取接收者
 			value := device.indexTable.Lookup(receiver)
-			// 迷药对
+			// 密钥对
 			keypair := value.keypair
 			if keypair == nil {
 				continue
@@ -182,6 +183,7 @@ func (device *Device) RoutineReceiveIncoming(recv conn.ReceiveFunc) {
 				// 放到对方的接收队列中
 				peer.queue.inbound.c <- elem
 				device.queue.decryption.c <- elem
+				// 重新获取buffer
 				buffer = device.GetMessageBuffer()
 			} else {
 				// 积压到设备中
@@ -458,8 +460,11 @@ func (peer *Peer) RoutineSequentialReceiver() {
 		peer.timersDataReceived()
 
 		switch elem.packet[0] >> 4 {
-		// 如果是ipv4
+		// 如果是ipv4的ip报文
+		// https://akaedu.github.io/book/ch36s04.html
+		// ip报文格式
 		case ipv4.Version:
+			// 20个字节
 			if len(elem.packet) < ipv4.HeaderLen {
 				goto skip
 			}
@@ -468,8 +473,9 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			if int(length) > len(elem.packet) || int(length) < ipv4.HeaderLen {
 				goto skip
 			}
+			// 真正的packet
 			elem.packet = elem.packet[:length]
-			// 源地址
+			// ipv4包文源地址
 			src := elem.packet[IPv4offsetSrc : IPv4offsetSrc+net.IPv4len]
 			// ip列表中对应的
 			if device.allowedips.Lookup(src) != peer {
@@ -512,7 +518,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			}
 		}
 	skip:
-	        // 放回
+		// 放回buffer
 		device.PutMessageBuffer(elem.buffer)
 		device.PutInboundElement(elem)
 	}

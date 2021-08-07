@@ -21,7 +21,7 @@ type Peer struct {
 	keypairs     Keypairs
 	// 用于握手
 	handshake    Handshake
-	// 所属tun设备
+	// 所属设备
 	device       *Device
 	endpoint     conn.Endpoint
 	stopping     sync.WaitGroup // routines pending stop
@@ -65,6 +65,7 @@ type Peer struct {
 	persistentKeepaliveInterval uint32 // accessed atomically
 }
 
+// 整个设备
 func (device *Device) NewPeer(pk NoisePublicKey) (*Peer, error) {
 	// tun 设备关掉
 	if device.isClosed() {
@@ -105,6 +106,7 @@ func (device *Device) NewPeer(pk NoisePublicKey) (*Peer, error) {
 	handshake := &peer.handshake
 	handshake.mutex.Lock()
 	handshake.precomputedStaticStatic = device.staticIdentity.privateKey.sharedSecret(pk)
+	// 公钥
 	handshake.remoteStatic = pk
 	handshake.mutex.Unlock()
 
@@ -117,13 +119,14 @@ func (device *Device) NewPeer(pk NoisePublicKey) (*Peer, error) {
 	// start peer
 	peer.timersInit()
 	if peer.device.isUp() {
-		// 开始
+		// 开始接受对应的节点数据，包括读写两个方向
 		peer.Start()
 	}
 
 	return peer, nil
 }
 
+// 通过udp发送出去
 func (peer *Peer) SendBuffer(buffer []byte) error {
 	peer.device.net.RLock()
 	defer peer.device.net.RUnlock()
@@ -184,6 +187,7 @@ func (peer *Peer) Start() {
 	peer.state.Lock()
 	defer peer.state.Unlock()
 
+	// 已经对该peer进行代理
 	if peer.isRunning.Get() {
 		return
 	}
@@ -205,9 +209,9 @@ func (peer *Peer) Start() {
 
 	device.flushInboundQueue(peer.queue.inbound)
 	device.flushOutboundQueue(peer.queue.outbound)
-	// 发送者
+	// 发送给peer
 	go peer.RoutineSequentialSender()
-	// 接收从tun设备发过来的消息，通过tun设备向网络栈传递
+	// 从peer接收从网络协议栈udp通过udp接收到的发给tun设备的消息，通过tun设备向网络栈传递
 	go peer.RoutineSequentialReceiver()
 
 	// 正在运行

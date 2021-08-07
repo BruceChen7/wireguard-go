@@ -30,6 +30,7 @@ const (
 )
 
 type NativeTun struct {
+	// 获取该file 来读写数据
 	tunFile                 *os.File
 	index                   int32      // if index
 	errors                  chan error // async error handling
@@ -353,6 +354,7 @@ func (tun *NativeTun) nameSlow() (string, error) {
 
 func (tun *NativeTun) Write(buf []byte, offset int) (int, error) {
 	if tun.nopi {
+		// 写数据
 		buf = buf[offset:]
 	} else {
 		// reserve space for header
@@ -388,6 +390,7 @@ func (tun *NativeTun) Read(buf []byte, offset int) (n int, err error) {
 	case err = <-tun.errors:
 	default:
 		if tun.nopi {
+			// 通过tun设备进行读读
 			n, err = tun.tunFile.Read(buf[offset:])
 		} else {
 			buff := buf[offset-4:]

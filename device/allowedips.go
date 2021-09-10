@@ -300,6 +300,7 @@ func (table *AllowedIPs) Insert(ip net.IP, cidr uint8, peer *Peer) {
 	}
 }
 
+// 找到对应的peer端点
 func (table *AllowedIPs) Lookup(address []byte) *Peer {
 	table.mutex.RLock()
 	defer table.mutex.RUnlock()

@@ -40,6 +40,7 @@ func (p *WaitPool) Get() interface{} {
 
 // 放回
 func (p *WaitPool) Put(x interface{}) {
+	// 将临时对象放回
 	p.pool.Put(x)
 	if p.max == 0 {
 		return

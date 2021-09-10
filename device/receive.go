@@ -477,7 +477,7 @@ func (peer *Peer) RoutineSequentialReceiver() {
 			elem.packet = elem.packet[:length]
 			// ipv4包文源地址
 			src := elem.packet[IPv4offsetSrc : IPv4offsetSrc+net.IPv4len]
-			// ip列表中对应的
+			// ip列表中对应的转发
 			if device.allowedips.Lookup(src) != peer {
 				device.log.Verbosef("IPv4 packet with disallowed source address from %v", peer)
 				goto skip

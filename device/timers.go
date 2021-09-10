@@ -220,6 +220,7 @@ func (peer *Peer) timersInit() {
 	peer.timers.persistentKeepalive = peer.NewTimer(expiredPersistentKeepalive)
 }
 
+// 设置定时相关逻辑
 func (peer *Peer) timersStart() {
 	atomic.StoreUint32(&peer.timers.handshakeAttempts, 0)
 	peer.timers.sentLastMinuteHandshake.Set(false)
